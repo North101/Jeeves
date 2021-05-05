@@ -1,0 +1,10 @@
+{
+  "apps": [
+    {
+      "name": "Jeeves",
+      "script": "main.py",
+      "exec_interpreter": "python3",
+      "exec_mode": "fork_mode"
+    }
+  ]
+}

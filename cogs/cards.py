@@ -18,33 +18,14 @@ class CardCog(commands.Cog):
         self.packs = dict()
         self.mwl = dict()
 
-        self.emojis = {
-            'interrupt': '<:nrinterrupt:740396491881054250>',
-            'agenda': ' <:nragenda:740400605251633214>', # Yes, there is a space here - the emoji looks *terrible* without it.
-            'click': '<:nrclick:740399988953186324>',
-            'credit': '<:nrcredit:740398541708722306>',
-            'mu': ' <:nrmemory:740400262979518475>',  # Yes, there is a space here - the emoji looks *terrible* without it.
-            'recurring-credit': '<:nrrecurring:740399375884484617>',
-            'rez': ' <:nrrez:740400425743941712>', # Yes, there is a space here - the emoji looks *terrible* without it.
-            'trash': '<:nrtrash:740399209697509436>',
-            'subroutine': '↳',
-            'link': ' <:nrlink:740682864559128716>', # Yes, there is a space here - the emoji looks *terrible* without it.
-            'weyland-consortium': '<:nrweyland:744275191714152548>',
-            'jinteki': '<:nrjinteki:744275192074993734>',
-            'haas-bioroid': '<:nrhaasbioroid:744275192142102600>',
-            'nbn': '<:nrnbn:744275191856758891>',
-            'anarch': '<:nranarch:744275191433134135>',
-            'shaper': '<:nrshaper:744275192028856430>',
-            'criminal': '<:nrcriminal:744275191974330440>',
-            'apex': '<:nrapex:744275777842970716>',
-            'adam': '<:nradam:744275777926856755>',
-            'sunny-lebeau': '<:nrsunny:744275778073788536>'
-        }
-
         self.config = configparser.ConfigParser()
 
         self.load_cards()
         self.load_config()
+    
+    @property
+    def emojis(self):
+        return self.config['Emoji']
 
     def load_config(self):
         self.config.read('cards.ini')

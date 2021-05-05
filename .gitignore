@@ -149,5 +149,4 @@ cython_debug/
 bin/
 pyvenv.cfg
 
-# Ignore custom configuration files
-config.ini
+deploy.json
