@@ -23,9 +23,15 @@ class CardCog(commands.Cog):
         self.load_cards()
         self.load_config()
     
-    @property
-    def emojis(self):
-        return self.config['Emoji']
+    def emojis(self, guild):
+        emojis = {
+            emoji.name: f'<:{emoji.name}:{emoji.id}>'
+            for emoji in guild.emojis
+        } if guild else {}
+        return {
+            key: emojis.get(value, f'[{key}]')
+            for key, value in self.config['Emoji'].items()
+        }
 
     def load_config(self):
         self.config.read('cards.ini')
@@ -66,9 +72,9 @@ class CardCog(commands.Cog):
     def search_card(self, text) -> str:
         return max([*self.cards.keys()], key=lambda x: self.score_card(text, x))
 
-    def clean_card_text(self, text: str) -> (str, str):
+    def clean_card_text(self, text: str, emojis) -> (str, str):
         emoji_text = text
-        for e, e_code in self.emojis.items():
+        for e, e_code in emojis.items():
             emoji_text = emoji_text.replace(f'[{e}]', e_code)
 
             # Note - as Discord only supports a subset of markdown, we will need to handle list formatting ourselves.
@@ -79,15 +85,15 @@ class CardCog(commands.Cog):
         lines = emoji_text.splitlines()
         return ('\n'.join(['' if t.startswith('<errata>') else md(t) for t in lines]), md(lines[-1]) if len(lines) > 0 and lines[-1].startswith('<errata>') else '')
 
-    def generate_header_for_card(self, card) -> (str, str):
+    def generate_header_for_card(self, card, emojis) -> (str, str):
         # In order of appending:
         # Agenda Cost, Agenda Points, (Cost/Rez), Strength, Trash, Link, Influence Count, Influence Cost
 
         f_cost = None
         if 'type_code' in card and card['type_code'] != 'identity' and card['type_code'] != 'agenda':
             rez_costs = ['asset', 'ice', 'upgrade']        
-            has_cost_play = f"{self.emojis['credit']}" if card['type_code'] not in rez_costs else None
-            has_cost_rez = f"{self.emojis['credit']}" if card['type_code'] in rez_costs else None
+            has_cost_play = f"{emojis['credit']}" if card['type_code'] not in rez_costs else None
+            has_cost_rez = f"{emojis['credit']}" if card['type_code'] in rez_costs else None
             f_emoji = ""
             if has_cost_play:
                 f_emoji = has_cost_play
@@ -100,13 +106,13 @@ class CardCog(commands.Cog):
                 else "X"}{f_emoji}"""
 
         headers = [
-            f"""{f"{card['advancement_cost']}{self.emojis['rez']}" if 'advancement_cost' in card else ""}""",
-            f"""{f"{card['agenda_points']}{self.emojis['agenda']}" if 'agenda_points' in card else ""}""",
+            f"""{f"{card['advancement_cost']}{emojis['rez']}" if 'advancement_cost' in card else ""}""",
+            f"""{f"{card['agenda_points']}{emojis['agenda']}" if 'agenda_points' in card else ""}""",
             f_cost,
-            f"""{f"{card['memory_cost']}{self.emojis['mu']}" if 'memory_cost' in card else ""}""", # 
+            f"""{f"{card['memory_cost']}{emojis['mu']}" if 'memory_cost' in card else ""}""", # 
             f"""{f"{card['strength']} Strength" if 'strength' in card else ""}""",
-            f"""{f"{card['trash_cost']}{self.emojis['trash']}" if 'trash_cost' in card else ""}""",
-            f"""{f"{card['base_link']}{self.emojis['link']}" if 'base_link' in card else ""}""",
+            f"""{f"{card['trash_cost']}{emojis['trash']}" if 'trash_cost' in card else ""}""",
+            f"""{f"{card['base_link']}{emojis['link']}" if 'base_link' in card else ""}""",
             f"""{
                 f"{(card['minimum_deck_size'] if card['minimum_deck_size'] else '∞')} / {(card['influence_limit'] if card['influence_limit'] else '∞')}" 
                 if 'influence_limit' in card and 'minimum_deck_size' in card else ""}"""
@@ -157,7 +163,7 @@ class CardCog(commands.Cog):
     def generate_cycle_symbol_for_cycle(self, cycle: str) -> str:
         return ''
 
-    def generate_embed(self, card) -> discord.Embed:
+    def generate_embed(self, card, emojis) -> discord.Embed:
         # A Discord embed is made up of several parts:
         # The 'title', where we will put the card name and uniqueness flag at.
         title = f"{'◆ ' if card['uniqueness'] else ''}{card['title']}"
@@ -169,9 +175,9 @@ class CardCog(commands.Cog):
         # uses HTML tags for some reason, which looks ugly in Discord, so convert to Markdown first.
         card_type = 'ICE' if card['type_code'] == 'ice' else card['type_code'].title()
         card_keywords = f": {card['keywords']}" if 'keywords' in card else ''
-        (card_subtypes, influence) = self.generate_header_for_card(card)
+        (card_subtypes, influence) = self.generate_header_for_card(card, emojis)
         card_attributes = f"**{card_type}{card_keywords}** ({card_subtypes}){influence}"
-        (card_body, errata) = self.clean_card_text(card.get('text', ""))
+        (card_body, errata) = self.clean_card_text(card.get('text', ""), emojis)
 
         text = f"{card_attributes}\n{card_body}"
 
@@ -204,12 +210,12 @@ class CardCog(commands.Cog):
         embed.set_image(url=f"https://netrunnerdb.com/card_image/large/{card['code']}.jpg")
         return embed
 
-    def generate_flavor(self, card) -> discord.Embed:
+    def generate_flavor(self, card, emojis) -> discord.Embed:
         title = f"{'◆ ' if card['uniqueness'] else ''}{card['title']}"
         color = self.generate_color_for_faction(card['faction_code'])
         flavor = "*No flavor text.*"
         if 'flavor' in card:
-            (txt, e) = self.clean_card_text(card['flavor'])
+            (txt, e) = self.clean_card_text(card['flavor'], emojis)
             flavor = f"*{txt}*"
 
         embed = discord.Embed(description=flavor, color=color)
@@ -227,22 +233,24 @@ class CardCog(commands.Cog):
         embed_results = re.findall('\[\[(.*?)\]\]', message.content)
         image_results = re.findall('\{\{(.*?)\}\}', message.content)
         flavor_results = re.findall('<<(.*?)>>', message.content)
+        max_searches = self.config.getint('Configuration', 'MaxSearches')
+        emojis = self.emojis(message.guild)
 
         if len(embed_results) > 0:
-            queries = [ self.search_card(self.strip_accents(q)) for q in embed_results[:self.config.getint('Configuration', 'MaxSearches')] ]
-            embeds = [ self.generate_embed(self.cards[c]) for c in queries ]
+            queries = [ self.search_card(self.strip_accents(q)) for q in embed_results[:max_searches] ]
+            embeds = [ self.generate_embed(self.cards[c], emojis) for c in queries ]
             for e in embeds:
                 await message.channel.send(embed=e)
 
         elif len(image_results) > 0:
-            queries = [ self.search_card(self.strip_accents(q)) for q in image_results[:self.config.getint('Configuration', 'MaxSearches')] ]
+            queries = [ self.search_card(self.strip_accents(q)) for q in image_results[:max_searches] ]
             urls = [ self.generate_image(self.cards[c]) for c in queries ]
             for u in urls:
                 await message.channel.send(embed=u)
 
         elif len(flavor_results) > 0:
-            queries = [ self.search_card(self.strip_accents(q)) for q in flavor_results[:self.config.getint('Configuration', 'MaxSearches')] ]
-            flavors = [ self.generate_flavor(self.cards[c]) for c in queries ]
+            queries = [ self.search_card(self.strip_accents(q)) for q in flavor_results[:max_searches] ]
+            flavors = [ self.generate_flavor(self.cards[c], emojis) for c in queries ]
             for f in flavors:
                 await message.channel.send(embed=f)
 
