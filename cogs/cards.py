@@ -230,6 +230,17 @@ class CardCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
+        if message.author.id == self.bot.user.id:
+            return
+
+        content_parts = message.content.split(' ')
+        if content_parts and content_parts[0] == '!jeeves':
+            if len(content_parts) > 2 and content_parts[1] == 'emoji':
+                await message.reply('\n'.join([
+                    emoji
+                    for emoji in self.emoji(message.guild).values()
+                ]), mention_author=True)
+
         embed_results = re.findall('\[\[(.*?)\]\]', message.content)
         image_results = re.findall('\{\{(.*?)\}\}', message.content)
         flavor_results = re.findall('<<(.*?)>>', message.content)
