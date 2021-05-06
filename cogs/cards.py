@@ -9,6 +9,15 @@ import unicodedata
 import configparser
 from typing import List, Dict
 
+class Emoji:
+    def __init__(self, emoji_id, emoji_name, emoji):
+        self.emoji_id = emoji_id
+        self.emoji_name = emoji_name
+        self.emoji = emoji
+    
+    def __str__(self):
+        return self.emoji or f'[{self.emoji_name}]'
+
 class CardCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -29,7 +38,7 @@ class CardCog(commands.Cog):
             for emoji in guild.emojis
         } if guild else {}
         return {
-            key: emojis.get(value, f'[{key}]')
+            key: Emoji(value, key, emojis.get(value))
             for key, value in self.config['Emoji'].items()
         }
 
@@ -75,7 +84,7 @@ class CardCog(commands.Cog):
     def clean_card_text(self, text: str, emojis) -> (str, str):
         emoji_text = text
         for e, e_code in emojis.items():
-            emoji_text = emoji_text.replace(f'[{e}]', e_code)
+            emoji_text = emoji_text.replace(f'[{e}]', str(e_code))
 
             # Note - as Discord only supports a subset of markdown, we will need to handle list formatting ourselves.
             emoji_text = emoji_text.replace(f'<ul>', '\n')
@@ -221,25 +230,29 @@ class CardCog(commands.Cog):
         embed = discord.Embed(description=flavor, color=color)
         embed.set_author(name=title, url=f"https://netrunnerdb.com/en/card/{card['code']}", icon_url=f"https://netrunnerdb.com/card_image/small/{card['code']}.jpg")
         return embed
+    
+    @commands.group()
+    async def jeeves(self, ctx):
+        pass
 
-    @commands.command(name='force_reload', hidden=True)
+    @jeeves.command(name='force_reload', hidden=True)
     @commands.check_any(commands.is_owner())
     async def force_reload(self, ctx):
         self.load_cards()
         await ctx.send(f"Very good sir, I've loaded {len(self.cards)} cards into memory now.")
+    
+    @jeeves.command()
+    async def emoji(self, ctx):
+        emojis = '\n'.join([
+            f'{emoji.emoji_id}: {emoji}'
+            for emoji in self.emojis(ctx.guild).values()
+        ])
+        return await ctx.send(f'Emojis: \n{emojis}')
 
     @commands.Cog.listener()
     async def on_message(self, message):
         if message.author.id == self.bot.user.id:
             return
-
-        content_parts = message.content.split(' ')
-        if content_parts and content_parts[0] == '!jeeves':
-            if len(content_parts) > 2 and content_parts[1] == 'emoji':
-                await message.reply('\n'.join([
-                    emoji
-                    for emoji in self.emoji(message.guild).values()
-                ]), mention_author=True)
 
         embed_results = re.findall('\[\[(.*?)\]\]', message.content)
         image_results = re.findall('\{\{(.*?)\}\}', message.content)
